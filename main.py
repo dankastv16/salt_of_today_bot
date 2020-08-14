@@ -16,7 +16,6 @@ from pipe import *
 
 import telebot
 
-TOKEN = '1031643376:AAEuEZ8UpoqpC1iLxYueOua_RcIxtMDbOj0'
 bot = telebot.TeleBot(TOKEN)
 
 from telebot import types
