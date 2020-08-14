@@ -1,3 +1,21 @@
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import TruncatedSVD
+import numpy as np
+from sklearn.neighbors import BallTree
+from sklearn.base import BaseEstimator
+
+df = pd.read('main_df.csv', encoding='utf-8')
+vectorizer = TfidfVectorizer()
+vectorizer.fit(df.iloc[:,1])
+matrix_big = vectorizer.transform(df.iloc[:,1])
+
+svd = TruncatedSVD(n_components = 125)
+svd.fit(matrix_big)
+matrix_small = svd.transform(matrix_big)
+
+
+
 def softmax(x):
     #создадим вероятностное распределение 
     proba = np.exp(-x)
