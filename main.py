@@ -1,28 +1,42 @@
-import pandas as pd
-df = pd.read('main_df.csv', encoding='utf-8')
-from sklearn.feature_extraction.text import TfidfVectorizer
-vectorizer = TfidfVectorizer()
-vectorizer.fit(df.iloc[:,1])
-matrix_big = vectorizer.transform(df.iloc[:,1])
-from sklearn.decomposition import TruncatedSVD
-svd = TruncatedSVD(n_components = 125)
-svd.fit(matrix_big)
-matrix_small = svd.transform(matrix_big)
-import numpy as np
-from sklearn.neighbors import BallTree
-from sklearn.base import BaseEstimator
+
+import argparse
+import os
+from texts import *
+import telebot
+from telebot import types # кнопки
+from string import Template
+from datetime import datetime
+from flask import Flask, request
+from pymongo import MongoClient
+import re
 
 from pipe import *  
 
 import telebot
 
 bot = telebot.TeleBot(TOKEN)
+API_TOKEN = os.environ['TOKEN']
 
-from telebot import types
-import datetime
+server = Flask(__name__)
+TELEBOT_URL = 'telebot_webhook/'
+BASE_URL = 'https://saltybotessa.herokuapp.com/'
+
+MONGODB_URI = os.environ['MONGODB_URI']
+
+mongo_client = MongoClient(MONGODB_URI)
+mongo_db = mongo_client.get_default_database()
+mongo_users = mongo_db.get_collection('users')
+mongo_logs = mongo_db.get_collection('logs')
+
+
+def log(message):
+    mongo_logs.insert_one({
+        "text": message.text,
+        "timestamp": datetime.utcnow()
+    })
 
 markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
-itembtn1 = types.KeyboardButton(u'\U0001F636')
+itembtn1 = types.InlineKeyboardMarkup(u'\U0001F636')
 itembtn2= types.KeyboardButton(u'\U0001F603')
 itembtn22= types.KeyboardButton(u'\U0001F620')
 itembtn3 = types.KeyboardButton(text = 'Поделитесь контактом?',request_contact=True)
@@ -62,14 +76,30 @@ def echo_hello(message):
     #прописать команду not to use a какое-то количество команд от одного пользователя.
     
     #какие еще методы, помимо message_handlera, есть у питона?
-def log(message):
-    print("<!------!>")
-    from datetime import datetime
-    print(datetime.now())
-    print("Сообщение от {0} {1} (id = {2}) \n {3} \n {4}"
-          .format(message.from_user.first_name,               
-          #найти тег Текста!пользователя, ответственный за текст
-              message.from_user.last_name,
-             str(message.from_user.id),
-          message.forward_from, message.text))
+
     
+    
+@server.route('/' + TELEBOT_URL + API_TOKEN, methods=['POST'])
+def get_message():
+    bot.process_new_updates([telebot.types.Update.de_json(request.stream.read().decode("utf-8"))])
+    return "!", 200
+
+
+@server.route("/")
+def webhook():
+    bot.remove_webhook()
+    bot.set_webhook(url=BASE_URL + TELEBOT_URL + API_TOKEN)
+    return "!", 200 
+
+
+parser = argparse.ArgumentParser(description='Run the bot')
+parser.add_argument('--poll', action='store_true')
+args = parser.parse_args()
+
+if args.poll:
+    bot.remove_webhook()
+    bot.polling()
+else:
+    # webhook should be set first
+    webhook()
+    server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
